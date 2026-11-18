@@ -1,28 +1,162 @@
 <!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>LNA Test</title>
-</head>
-<body>
-  <h3>LNA localhost test</h3>
-
-  <button onclick="callLocal()">fetch localhost</button>
-  <pre id="out">waiting</pre>
-
-  <script>
-    async function callLocal() {
-      const out = document.getElementById('out')
-      out.textContent = 'loading...'
-
-      try {
-        const url = 'http://127.0.0.1:18080/ping'
-        const res = await fetch(url, { mode: 'cors' })
-        out.textContent = 'SUCCESS\n' + await res.text()
-      } catch (e) {
-        out.textContent = 'FAILED\n' + e.message
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LNA Loopback Test</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        max-width: 720px;
+        margin: 24px auto;
+        padding: 0 16px;
+        color: #222;
       }
-    }
-  </script>
-</body>
+
+      section {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin-bottom: 16px;
+      }
+
+      h2 {
+        margin-top: 0;
+        font-size: 16px;
+      }
+
+      button {
+        padding: 6px 12px;
+        margin-right: 8px;
+      }
+
+      pre {
+        min-height: 60px;
+        padding: 10px;
+        border-radius: 4px;
+        background: #f6f8fa;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+
+      .ok {
+        color: #137333;
+      }
+
+      .error {
+        color: #c5221f;
+      }
+
+      .muted {
+        color: #666;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>LNA Loopback Test</h1>
+    <p class="muted">
+      目标服务：
+      <code>http://127.0.0.1:18080/ping</code>
+    </p>
+
+    <section>
+      <h2>1. 页面加载后自动 fetch</h2>
+      <pre id="auto-result">waiting...</pre>
+    </section>
+
+    <section>
+      <h2>2. 按钮点击后 fetch</h2>
+      <button id="fetch-button">fetch localhost</button>
+      <pre id="fetch-result">waiting...</pre>
+    </section>
+
+    <section>
+      <h2>3. 当前 iframe 跳转到 localhost</h2>
+      <p class="muted">
+        这一步会尝试让当前 frame 导航到 localhost。若 navigation 被 LNA 拦截，更接近业务里整个 iframe 显示错误页的表现。
+      </p>
+      <button id="navigate-button">location.href = localhost</button>
+      <pre id="navigate-result">not started</pre>
+    </section>
+
+    <section>
+      <h2>4. 输出 iframe 位置</h2>
+      <pre id="context-result">checking...</pre>
+    </section>
+
+    <script>
+      const LOCAL_URL = 'http://127.0.0.1:18080/ping'
+
+      function setResult(id, text, isError) {
+        const el = document.getElementById(id)
+        if (!el) return
+
+        el.textContent = text
+        el.className = isError ? 'error' : 'ok'
+      }
+
+      async function callLocal(id) {
+        setResult(id, 'fetching...', false)
+
+        try {
+          const startedAt = performance.now()
+          const res = await fetch(LOCAL_URL, {
+            method: 'GET',
+            mode: 'cors',
+            cache: 'no-store'
+          })
+
+          const text = await res.text()
+          setResult(
+            id,
+            'SUCCESS\n\n' +
+              'status: ' + res.status + '\n' +
+              'elapsed: ' + Math.round(performance.now() - startedAt) + 'ms\n\n' +
+              text,
+            false
+          )
+        } catch (err) {
+          setResult(
+            id,
+            'FAILED\n\n' +
+              'name: ' + err.name + '\n' +
+              'message: ' + err.message + '\n' +
+              'stack: ' + (err.stack || 'none'),
+            true
+          )
+        }
+      }
+
+      document.getElementById('fetch-button').addEventListener('click', () => {
+        callLocal('fetch-result')
+      })
+
+      document.getElementById('navigate-button').addEventListener('click', () => {
+        setResult('navigate-result', 'navigating...', false)
+        window.location.href = LOCAL_URL
+      })
+
+      function printContext() {
+        let text
+
+        try {
+          text =
+            'window.location.href:\n' + window.location.href + '\n\n' +
+            'is top window: ' + (window === window.top) + '\n' +
+            'parent origin: ' +
+              (window.parent && window.parent.location && window.parent.location.origin
+                ? window.parent.location.origin
+                : 'cross-origin or unavailable')
+        } catch (err) {
+          text = 'context check failed: ' + err.message
+        }
+
+        setResult('context-result', text, false)
+      }
+
+      printContext()
+      callLocal('auto-result')
+    </script>
+  </body>
 </html>
